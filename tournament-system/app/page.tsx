@@ -26,7 +26,7 @@ export default function Home() {
               href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
               className="font-medium text-zinc-950 dark:text-zinc-50"
             >
-              Templates
+              HELLOO WORLDDD
             </a>{" "}
             or the{" "}
             <a
@@ -52,7 +52,7 @@ export default function Home() {
               width={16}
               height={14}
             />
-            Deploy Now
+            HELOOOO
           </a>
           <a
             className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"

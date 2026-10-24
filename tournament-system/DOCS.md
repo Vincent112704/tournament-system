@@ -1,4 +1,4 @@
-# Sports Tournament Management System
+# Arnis Tournament Management System
 
 > **Status:** Initial architecture and requirements draft  
 > **Purpose:** A reference document for planning, implementation, and verification.  
@@ -6,7 +6,7 @@
 
 ## 1. Project overview
 
-Build a web-based tournament management system for a local sports organization. Tournament managers use the private management interface to register players, configure events and divisions, generate brackets, record results, and control match progression. The public can view a live scoreboard without receiving access to management capabilities.
+Build a web-based arnis tournament management system for Dumaguete Arnis Association (DUMAA). Tournament managers use the private management interface to register players, configure events and divisions, generate brackets, record results, and control match progression. The public can view a live scoreboard without receiving access to management capabilities.
 
 The system is initially intended for a small number of operators and a modest database, so the architecture should prioritize correctness, maintainability, and simplicity over infrastructure complexity.
 
@@ -40,18 +40,11 @@ The system is initially intended for a small number of operators and a modest da
 
 These are requirements questions, not implementation details to guess:
 
-- Exact combat sport(s) and rules for each sport.
-- How divisions are defined: age, weight class, gender category, skill/belt level, discipline, or other criteria.
+- Bracketing logic (rules for bracketing players and constraints)
+- How divisions are defined: age, weight class, gender category, or other criteria.
 - Seeding rules and how byes are assigned.
-- Whether brackets can be edited after generation and what happens if a downstream match has already started.
-- Whether a match can end in a draw, disqualification, walkover, withdrawal, injury stoppage, or another special outcome.
-- Whether scores are numeric, points-based, round-based, or mainly a winner/outcome selection.
-- Whether the scoreboard is one public page per event, per division, or per active match.
-- Whether player profiles need sensitive data such as date of birth. Collect only what is necessary.
-- Whether managers need different permission levels or whether all managers can perform the same actions.
-- Whether registration, imports, printing/exporting, notifications, and historical statistics are required in the first release.
+- How is scoreboard displayed from client ( do admins select from bracket? auto progression? etc. )
 
-Resolve these questions with the organization before encoding them into the data model or bracket algorithm.
 
 ## 3. Architecture decisions
 
@@ -153,23 +146,27 @@ tournament-system/
 │   └── api/
 │       └── ...
 ├── components/
-├── features/
+├── modules/
 │   ├── players/
-│   ├── events/
-│   ├── registrations/
+│   │   ├── repository/
+│   │   └── service/
+│   ├── tournament/
+│   │   ├── repository/
+│   │   └── service/
 │   ├── brackets/
+│   │   ├── repository/
+│   │   └── service/
 │   └── matches/
+│       ├── repository/
+│       └── service/
 ├── lib/
 │   ├── supabase/
 │   ├── auth/
 │   └── validation/
-├── domain/
-│   ├── bracket-generator.ts
-│   ├── advancement.ts
-│   ├── match-rules.ts
-│   └── types.ts
-├── supabase/
-│   └── migrations/
+├── database/
+│   ├── migrations/
+│   └── seed/
+├── schema/
 └── tests/
     ├── unit/
     ├── integration/
@@ -203,7 +200,6 @@ Possible fields:
 - `is_active`
 - `created_at`
 
-Do not store passwords in this table. Authentication credentials belong to Supabase Auth.
 
 ### `players`
 
@@ -220,7 +216,7 @@ Possible fields:
 
 Avoid storing unnecessary sensitive personal information.
 
-### `events`
+### `tournament`
 
 Represents a tournament event. The organization may create many events over time.
 

@@ -5,50 +5,72 @@
 
 ## Appendix A. Entity relationship diagram
 
-The following conceptual ERD transcribes the supplied **Untitled Diagram**. The named shapes overlaid on unnamed rectangles are represented as the associative entities `TOURNAMENT_PLAYER` and `DIVISION_TOURNAMENT`. Attributes and primary keys follow the source; `unspecified` means the source does not define a data type. Entities without attributes in the source remain without attributes here.
+The following conceptual ERD transcribes the supplied **Untitled Diagram**. The named shapes overlaid on unnamed rectangles are represented as the associative entities `TOURNAMENT_PLAYER` and `DIVISION_TOURNAMENT`. Attributes and primary keys follow the source; Entities without attributes in the source remain without attributes here.
 
 ```mermaid
 erDiagram
     TOURNAMENT {
-        unspecified tournament_id PK
-        unspecified tournament_name
-        unspecified date
-        unspecified venue
-        unspecified time
-        unspecified organizer
+        uuid tournament_id PK
+        string tournament_name
+        date date
+        string venue
+        string time
+        string organizer
     }
 
     PLAYER {
-        unspecified player_id PK
-        unspecified name
-        unspecified weight_category
-        unspecified age
-        unspecified coach
-        unspecified team
+        uuid player_id PK
+        string name
+        int age
+        string coach
+        string team
     }
 
     WEIGHT_DIVISION {
-        unspecified division_name
-        unspecified min_weight
-        unspecified max_weight
+        string division_name PK
+        int min_weight
+        int max_weight
     }
 
     MATCH {
-        unspecified match_id PK
-        unspecified player_1
-        unspecified player_2
-        unspecified winner
+        uuid match_id PK
+        uuid player_1 FK "References TOURNAMENT_PLAYER(tournament_player_id)"
+        uuid player_2 FK "References TOURNAMENT_PLAYER(tournament_player_id)"
+        uuid winner_id FK "References TOURNAMENT_PLAYER(tournament_player_id)"
+        uuid bracket_id FK 
     }
 
-    TOURNAMENT ||--o{ TOURNAMENT_PLAYER : "has registrations"
+    DIVISION_TOURNAMENT {
+        uuid division_tournament PK
+        uuid tournament_id FK
+        string division_name FK
+    }
+    
+    TOURNAMENT_PLAYER {
+        uuid tournament_player_id PK
+        uuid player_id FK
+        uuid division_tournament FK
+        float registered_weight_kg 
+    }
+
+    BRACKET {
+        uuid division_tournament FK
+        uuid bracket_id PK
+        string bracket_name
+
+    }
+
+    
     PLAYER ||--o{ TOURNAMENT_PLAYER : "has registrations"
     WEIGHT_DIVISION ||--|{ DIVISION_TOURNAMENT : "is in"
     TOURNAMENT ||--|{ DIVISION_TOURNAMENT : "has divisions"
     DIVISION_TOURNAMENT ||--o{ TOURNAMENT_PLAYER : "has registrations"
     DIVISION_TOURNAMENT ||--|{ BRACKET : "has brackets"
     BRACKET ||--o{ MATCH : "has matches"
-    TOURNAMENT_PLAYER }o--o{ MATCH : "has (source limit: 0..2)"
-    MATCH |o--o| MATCH : "contains"
+    TOURNAMENT_PLAYER ||--|{ MATCH : "occupies player 1 slot"
+    TOURNAMENT_PLAYER ||--|{ MATCH : "occupies player 2 slot"
+    TOURNAMENT_PLAYER ||--|{ MATCH : "occupies winner ID slot"
+    MATCH |o--o| MATCH : "next-match"
 ```
 
 ### Interpretation and open questions

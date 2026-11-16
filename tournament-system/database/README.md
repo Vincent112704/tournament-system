@@ -1,3 +1,88 @@
+## Running the PostgreSQL container
+
+The standalone database image uses PostgreSQL 17. It provides PostgreSQL only;
+Supabase Auth and Realtime are not included. Build from the repository root:
+
+```powershell
+docker build -t dumaa-db ./database
+```
+
+Set a strong local password in the current PowerShell session, then start the
+database with a named volume. Do not commit credentials:
+
+```powershell
+$env:POSTGRES_PASSWORD = Read-Host 'Local database password'
+docker run --name dumaa-db --detach --publish 127.0.0.1:5432:5432 --env POSTGRES_USER=dumaa --env POSTGRES_DB=dumaa --env POSTGRES_PASSWORD --mount source=dumaa-pgdata,target=/var/lib/postgresql/data dumaa-db
+Remove-Item Env:POSTGRES_PASSWORD
+docker inspect --format '{{.State.Health.Status}}' dumaa-db
+```
+
+The official entrypoint applies `migrations/*.sql` alphabetically on **first
+startup with an empty volume**. Rebuilding the image does not migrate an existing
+volume. The named volume survives container replacement. Never remove it to apply
+a migration. For a later migration, copy that specific file into the container and
+apply it once with `psql -X -v ON_ERROR_STOP=1`; track applied migrations during
+deployment. The initial migration is transactional and deliberately not rerunnable.
+
+Run integration tests on a disposable database initialized from the image:
+
+```powershell
+$env:POSTGRES_PASSWORD = Read-Host 'Disposable test database password'
+docker run --name dumaa-db-test --detach --env POSTGRES_USER=dumaa --env POSTGRES_DB=dumaa --env POSTGRES_PASSWORD --tmpfs /var/lib/postgresql/data dumaa-db
+Remove-Item Env:POSTGRES_PASSWORD
+# Wait for docker inspect to report healthy before running psql.
+docker inspect --format '{{.State.Health.Status}}' dumaa-db-test
+docker cp ./tests/integration/database_schema.sql dumaa-db-test:/tmp/database_schema.sql
+docker exec dumaa-db-test psql -X -U dumaa -d dumaa -v ON_ERROR_STOP=1 -f /tmp/database_schema.sql
+docker rm --force dumaa-db-test
+```
+
+To check persistence, create a disposable tournament record, run
+`docker restart dumaa-db`, and query the record again. Connect locally with
+`psql -X -h localhost -U dumaa -d dumaa`. To apply the initial migration to an
+empty database without Docker:
+
+```powershell
+psql -X -v ON_ERROR_STOP=1 -d "$env:DATABASE_URL" -f database/migrations/001_initial_schema.sql
+psql -X -v ON_ERROR_STOP=1 -d "$env:DATABASE_URL" -f tests/integration/database_schema.sql
+```
+
+### Implemented schema policies
+
+- Entity and column names follow the ERD in lowercase. Tournament `time` is a
+  local wall-clock time without timezone; weights use `numeric(5,2)` kilograms.
+- Required text cannot be blank; age is nonnegative. Weights must be positive,
+  finite, and within **inclusive** division boundaries. Adjacent divisions may
+  share a boundary; administrators explicitly choose the registration division.
+- Duplicate division offerings and registrations within one division are rejected.
+  Multiple divisions per player and multiple brackets per division remain allowed.
+- Nullable match slots support future rounds and byes. `round_number` is positive;
+  advancement must go to a strictly later round in the same bracket. Each
+  destination slot has at most one feeder. Gaps between round numbers are allowed.
+- Registration reassignment is blocked once used in a match. Parent updates are
+  validated against current registrations and match eligibility. Referenced rows
+  cannot be deleted; finalized matches cannot be changed or deleted. TRUNCATE is
+  blocked so it cannot bypass these checks.
+- Call `SELECT public.finalize_match(match_uuid, winner_registration_uuid)` inside
+  a READ COMMITTED transaction. The function records the winner and advances them
+  atomically. An identical retry is a no-op; a different winner is rejected.
+  All feeder matches must be finalized before finalizing their destination match.
+  A populated destination slot must match its feeder winner. Deferred constraints
+  verify advancement at commit, including for direct SQL writes.
+- A single transaction-level advisory lock serializes writes across these tables.
+  This deliberately favors correctness for the initial small workload. Writes at
+  REPEATABLE READ or SERIALIZABLE isolation are rejected. Concurrent finalizations
+  wait, then observe committed state; lock contention may limit future throughput.
+- Winner selection is supplied by a trusted administrator. Score-derived winner
+  validation, match status, automatic bye handling, seeding, audit history,
+  regeneration, and correction workflows remain deferred. A one-participant match
+  can be finalized explicitly as a bye; no sporting rules are inferred.
+- RLS is enabled without access policies, PUBLIC privileges are revoked, and
+  functions use invoker rights. Owner credentials are for migrations/testing only.
+  Do not use them in browser code. Manager grants/policies, public scoreboard
+  projections, Supabase integration, and generated TypeScript database types must
+  follow when their actual access model and database environment are configured.
+
 ## 1. Data model
 
 - [Entity relationship diagram](#appendix-a-entity-relationship-diagram): Mermaid transcription of the supplied **drawio Diagram**, covering tournaments, divisions, registrations, brackets, players, and matches.
